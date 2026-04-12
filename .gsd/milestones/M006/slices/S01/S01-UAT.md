@@ -1,0 +1,6 @@
+# S01: Animation Engine & Playback — UAT
+
+**Milestone:** M006
+**Written:** 2026-04-11T19:09:20.926Z
+
+## Animation Engine & Playback UAT\n\n### Test 1: Keyframe Capture\n- [x] Navigate to Koch Snowflake preset\n- [x] Click \"Capture Keyframe\" — keyframe 1 appears in list showing \"koch snowflake\"\n- [x] Switch to Dragon Curve preset\n- [x] Click \"Capture Keyframe\" — keyframe 2 appears showing \"dragon curve\"\n- [x] Timeline scrubber and playback controls appear\n\n### Test 2: Playback\n- [x] Click play — animation begins, canvas shows morphing fractal\n- [x] \"▶ Animating\" indicator appears in header\n- [x] Timeline scrubber progresses from 0s to 2s\n- [x] With loop on, animation cycles back to start\n- [x] Click pause — animation freezes at current frame\n- [x] Click stop — resets to start, shows user's params\n\n### Test 3: Controls\n- [x] Speed buttons change playback speed\n- [x] Easing selector changes interpolation curve\n- [x] Loop toggle works\n- [x] Duration input on keyframe changes transition time\n- [x] Delete button removes keyframe\n\n### Test 4: Scrubbing\n- [x] Dragging timeline scrubber shows interpolated frame at that position\n- [x] Scrubbing pauses playback"

@@ -1,0 +1,6 @@
+# S01: IFS Engine, Renderer, Presets & UI Integration — UAT
+
+**Milestone:** M007
+**Written:** 2026-04-11T19:17:06.036Z
+
+## IFS Engine UAT\n\n### Test 1: Engine Mode Toggle\n- [x] L-System/IFS toggle visible at top of sidebar\n- [x] Click IFS — sidebar switches to IFS presets and controls\n- [x] Click L-System — sidebar returns to L-system controls\n- [x] Canvas updates correctly on each switch\n\n### Test 2: IFS Presets\n- [x] Barnsley Fern renders classic fern shape (100k points, 4 transforms)\n- [x] Sierpiński Triangle renders triangle fractal (50k points, 3 transforms)\n- [x] Dragon IFS renders dragon curve attractor (100k points)\n- [x] Maple Leaf renders organic leaf shape (100k points)\n- [x] Koch Curve IFS renders Koch attractor (80k points)\n- [x] Spiral renders logarithmic spiral (100k points)\n- [x] Crystal renders crystalline pattern (80k points)\n\n### Test 3: Per-Transform Coloring\n- [x] Each transform gets a distinct color from the preset palette\n- [x] Colors visible on Sierpiński Triangle (red/blue/green triangles)\n- [x] Color swatches shown in preset info panel\n\n### Test 4: Controls\n- [x] Points slider adjusts point count (1k-500k)\n- [x] Seed randomize button works\n- [x] Scale and rotation sliders work\n- [x] Background toggle works\n\n### Test 5: Header\n- [x] Shows \"X points\" in IFS mode vs \"X segments\" in L-system mode"
