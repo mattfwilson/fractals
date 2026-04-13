@@ -27,10 +27,6 @@ export function ExportPanel({ geometry, params }: ExportPanelProps) {
   const [mode, setMode] = useState<ExportMode>("optimized");
   const [copied, setCopied] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
-
   const isIFS = geometry.mode === "ifs";
   const elementCount = isIFS ? geometry.points.length : geometry.segments.length;
   const isEmpty = elementCount === 0;
@@ -57,11 +53,7 @@ export function ExportPanel({ geometry, params }: ExportPanelProps) {
   }, [isIFS, params.ifsPreset]);
 
   // Generate SVG result
-  const { result, genTimeMs } = useMemo(() => {
-    const t0 = mounted ? performance.now() : 0;
-
-    let res: { svg: string; byteSize: number; elementCount: number; pathCount: number };
-
+  const result = useMemo(() => {
     if (isIFS) {
       const ptsResult: SvgPointsResult = generatePointsSvg(
         (geometry as { mode: "ifs"; points: IFSPoint[] }).points,
@@ -76,15 +68,50 @@ export function ExportPanel({ geometry, params }: ExportPanelProps) {
           background: params.bgTransparent ? undefined : params.bgColor,
         }
       );
-      res = {
+      return {
         svg: ptsResult.svg,
         byteSize: ptsResult.byteSize,
         elementCount: ptsResult.pointCount,
         pathCount: ptsResult.pointCount,
       };
+    }
+    const segs = (geometry as { mode: "lsystem"; segments: Segment[] }).segments;
+    return generateSvg(segs, {
+      width: params.canvasWidth,
+      height: params.canvasHeight,
+      strokeColor: params.strokeColor,
+      strokeWidth: params.strokeWidth,
+      scale: params.scale,
+      rotation: params.rotation,
+      optimized: mode === "optimized",
+      precision: 2,
+      depthColors,
+      colorByIteration: params.colorMode === "per-iteration",
+      background: params.bgTransparent ? undefined : params.bgColor,
+    });
+  }, [geometry, params, mode, depthColors, ifsColors, isIFS]);
+
+  // Track generation time in an effect (performance.now is impure, can't live in useMemo)
+  const [genTimeMs, setGenTimeMs] = useState(0);
+  useEffect(() => {
+    const t0 = performance.now();
+    if (isIFS) {
+      generatePointsSvg(
+        (geometry as { mode: "ifs"; points: IFSPoint[] }).points,
+        {
+          width: params.canvasWidth,
+          height: params.canvasHeight,
+          strokeColor: params.strokeColor,
+          scale: params.scale,
+          rotation: params.rotation,
+          precision: 1,
+          transformColors: ifsColors,
+          background: params.bgTransparent ? undefined : params.bgColor,
+        }
+      );
     } else {
       const segs = (geometry as { mode: "lsystem"; segments: Segment[] }).segments;
-      res = generateSvg(segs, {
+      generateSvg(segs, {
         width: params.canvasWidth,
         height: params.canvasHeight,
         strokeColor: params.strokeColor,
@@ -98,10 +125,9 @@ export function ExportPanel({ geometry, params }: ExportPanelProps) {
         background: params.bgTransparent ? undefined : params.bgColor,
       });
     }
-
-    const elapsed = performance.now() - t0;
-    return { result: res, genTimeMs: elapsed };
-  }, [geometry, params, mode, depthColors, ifsColors, isIFS, mounted]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- diagnostic timing measurement for UX feedback
+    setGenTimeMs(performance.now() - t0);
+  }, [geometry, params, mode, depthColors, ifsColors, isIFS]);
 
   // Compute alt result for L-system comparison
   const altResult: SvgExportResult | null = useMemo(() => {
@@ -256,7 +282,7 @@ export function ExportPanel({ geometry, params }: ExportPanelProps) {
                     : "Grouped paths with chained commands. Smaller file."
                   : "Individual line elements. Each line selectable in Figma."}
             </p>
-            {mounted && genTimeMs > 0 && (
+            {genTimeMs > 0 && (
               <span
                 className={`text-[9px] font-[family-name:var(--font-mono)] ml-2 flex-shrink-0 ${
                   genTimeMs > 500 ? "text-[#f5a623]" : "text-text-tertiary"

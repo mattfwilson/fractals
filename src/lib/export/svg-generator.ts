@@ -13,35 +13,6 @@ function r(n: number, precision: number): string {
  * Build a single SVG <path> d-attribute from contiguous segments.
  * Uses relative line commands (l) after the initial M to save bytes.
  */
-function segmentsToPathD(
-  segments: Segment[],
-  offsetX: number,
-  offsetY: number,
-  fitScale: number,
-  geoCenterX: number,
-  geoCenterY: number,
-  precision: number
-): string {
-  if (segments.length === 0) return "";
-
-  const parts: string[] = [];
-
-  for (const seg of segments) {
-    const x1 = (seg.x1 - geoCenterX) * fitScale + offsetX;
-    const y1 = (seg.y1 - geoCenterY) * fitScale + offsetY;
-    const x2 = (seg.x2 - geoCenterX) * fitScale + offsetX;
-    const y2 = (seg.y2 - geoCenterY) * fitScale + offsetY;
-
-    // Use M (absolute move) then l (relative line) for each segment
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-
-    parts.push(`M${r(x1, precision)} ${r(y1, precision)}l${r(dx, precision)} ${r(dy, precision)}`);
-  }
-
-  return parts.join("");
-}
-
 /**
  * Build optimized SVG path data by chaining contiguous segments.
  * When the end of one segment matches the start of the next,

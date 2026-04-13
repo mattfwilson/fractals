@@ -85,7 +85,7 @@ export function renderPointsToCanvas(
 
     for (const p of points) {
       // Transform point: center, scale, rotate
-      let px = (p.x - geoCenterX) * fitScale;
+      const px = (p.x - geoCenterX) * fitScale;
       let py = (p.y - geoCenterY) * fitScale;
 
       // Flip Y (canvas Y goes down, math Y goes up)

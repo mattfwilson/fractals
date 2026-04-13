@@ -51,6 +51,7 @@ export function SvgPreview({ svgString, maxHeight = 200 }: SvgPreviewProps) {
           backgroundPosition: "0 0, 0 4px, 4px -4px, -4px 0px",
         }}
       />
+      {/* eslint-disable-next-line @next/next/no-img-element -- data URL from generated SVG, not a network image */}
       <img
         src={dataUrl}
         alt="SVG export preview"

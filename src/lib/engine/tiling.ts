@@ -1,4 +1,4 @@
-import type { Segment, BBox } from "./types";
+import type { Segment } from "./types";
 import { getBBox } from "./geometry";
 
 /**

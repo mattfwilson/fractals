@@ -169,11 +169,20 @@ export default function Home() {
 
   // The params actually used for rendering — either user params or animated params
   const [animatedParams, setAnimatedParams] = useState<FractalParams | null>(null);
-  const displayParams = animatedParams ?? params;
+
+  // Derive display params: during playback use rAF-driven state, when scrubbing
+  // compute interpolated params, otherwise fall back to user params
+  const displayParams = useMemo(() => {
+    if (animatedParams) return animatedParams;
+    if (!animation.playing && animation.keyframes.length >= 2 && animation.currentTime > 0) {
+      return getInterpolatedParams(animation.keyframes, animation.currentTime, animation.easing) ?? params;
+    }
+    return params;
+  }, [animatedParams, animation.playing, animation.keyframes, animation.currentTime, animation.easing, params]);
 
   // --- Animation loop ---
   const animRef = useRef(animation);
-  animRef.current = animation;
+  useEffect(() => { animRef.current = animation; }, [animation]);
 
   const lastFrameRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -242,44 +251,26 @@ export default function Home() {
     };
   }, [animation.playing]);
 
-  // When animation stops, clear animated params so we revert to user params
-  // (unless user is scrubbing — scrubbing sets playing=false but we want to show the scrub position)
-  useEffect(() => {
-    if (!animation.playing && animation.keyframes.length >= 2 && animation.currentTime > 0) {
-      // User scrubbed or animation ended — show interpolated frame
-      const interpolated = getInterpolatedParams(
-        animation.keyframes,
-        animation.currentTime,
-        animation.easing
-      );
-      if (interpolated) {
-        setAnimatedParams(interpolated);
-      }
-    } else if (!animation.playing && animation.currentTime === 0) {
-      // Stopped/reset — revert to user params
-      setAnimatedParams(null);
-    }
-  }, [animation.playing, animation.currentTime, animation.keyframes, animation.easing]);
-
   // Restore from URL on mount
-  const [urlApplied, setUrlApplied] = useState(false);
+  const urlAppliedRef = useRef(false);
   useEffect(() => {
-    if (urlApplied) return;
+    if (urlAppliedRef.current) return;
+    urlAppliedRef.current = true;
     const urlParams = deserializeParams(window.location.search);
     if (urlParams && Object.keys(urlParams).length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only mount initialization; can't use useState initializer due to SSR hydration mismatch
       setParams((prev) => ({ ...prev, ...urlParams }));
     }
-    setUrlApplied(true);
-  }, [urlApplied]);
+  }, []);
 
   // Sync params to URL after URL has been applied (only when not animating)
   useEffect(() => {
-    if (!urlApplied) return;
+    if (!urlAppliedRef.current) return;
     if (animation.playing) return;
     const search = serializeParams(params);
     const newUrl = `${window.location.pathname}?${search}`;
     window.history.replaceState(null, "", newUrl);
-  }, [params, urlApplied, animation.playing]);
+  }, [params, animation.playing]);
 
   // Compute geometry from display params
   const geometry = useMemo(() => computeGeometry(displayParams), [displayParams]);
