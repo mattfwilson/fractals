@@ -11,6 +11,7 @@ import type {
 import { generateKeyframeId } from "@/lib/animation/types";
 import { EASING_OPTIONS } from "@/lib/animation/easing";
 import { getTotalDuration } from "@/lib/animation/interpolate";
+import { CollapsibleSection } from "./CollapsibleSection";
 
 const SPEED_OPTIONS: PlaybackSpeed[] = [0.25, 0.5, 1, 2, 4];
 
@@ -20,22 +21,7 @@ interface AnimationPanelProps {
   onAnimationChange: (animation: AnimationState) => void;
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="px-4 py-4 border-b border-border-subtle">
-      <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-tertiary mb-3 font-[family-name:var(--font-display)]">
-        {title}
-      </h3>
-      <div className="flex flex-col gap-3">{children}</div>
-    </div>
-  );
-}
+
 
 export function AnimationPanel({
   params,
@@ -131,7 +117,7 @@ export function AnimationPanel({
     totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
 
   return (
-    <Section title="Animation">
+    <CollapsibleSection title="Animation" persistKey="animation" gap="3">
       {/* Add keyframe button */}
       <button
         onClick={addKeyframe}
@@ -375,6 +361,6 @@ export function AnimationPanel({
           Add at least one more keyframe to enable animation.
         </p>
       )}
-    </Section>
+    </CollapsibleSection>
   );
 }

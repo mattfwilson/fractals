@@ -5,3 +5,7 @@
 {"id":"ae177dc7-78dc-4c7f-a8e7-4e65085abb90","ts":"2026-04-12T23:14:29.757Z","severity":"info","message":"Claude Code MCP prepared at /Users/matt.wilson/Desktop/clauded/fractals/.mcp.json","source":"notify","read":false}
 {"id":"dbc545ce-cb16-456d-9998-a51f66fb5ab0","ts":"2026-04-13T13:40:01.137Z","severity":"warning","message":"Web search: Set BRAVE_API_KEY or use an Anthropic model for built-in search","source":"notify","read":false}
 {"id":"6a2b1e15-11a8-4de2-9e03-5db08d28b5d0","ts":"2026-04-13T13:40:23.989Z","severity":"info","message":"Native Anthropic web search active","source":"notify","read":false}
+{"id":"5f134996-df1b-45fd-9968-f2692cb8eef1","ts":"2026-04-22T17:09:49.628Z","severity":"info","message":"Native Anthropic web search active","source":"notify","read":false}
+{"id":"9d70ddf7-34ed-4255-bfce-753226463fd9","ts":"2026-04-22T18:39:47.476Z","severity":"info","message":"GSD: backfilled 4 decisions into the memory store (ADR-013).","source":"notify","read":false}
+{"id":"5c2f6ff7-bf15-4a78-84ad-0b2ba4cc5776","ts":"2026-04-23T17:13:45.830Z","severity":"warning","message":"Web search: Set BRAVE_API_KEY or use an Anthropic model for built-in search","source":"notify","read":false}
+{"id":"8651726a-4160-4b50-857c-cd277c325760","ts":"2026-04-23T17:19:18.935Z","severity":"info","message":"Native Anthropic web search active","source":"notify","read":false}

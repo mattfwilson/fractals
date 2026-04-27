@@ -91,6 +91,10 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 0 8px var(--accent-glow);
 }
 
+button {
+  cursor: pointer;
+}
+
 /* Smooth canvas transitions */
 canvas {
   image-rendering: auto;

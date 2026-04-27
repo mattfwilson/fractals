@@ -12,6 +12,8 @@ interface RenderOptions {
   depthColors?: string[];
   /** When true, color by segment.iteration instead of segment.depth */
   colorByIteration?: boolean;
+  /** Optional overlay rects drawn in geometry space after segments. */
+  overlayRects?: Array<{ x: number; y: number; w: number; h: number }>;
 }
 
 /**
@@ -24,7 +26,7 @@ export function renderToCanvas(
   segments: Segment[],
   options: RenderOptions
 ): void {
-  const { strokeColor, strokeWidth, scale, rotation, canvasWidth, canvasHeight, depthColors, colorByIteration } = options;
+  const { strokeColor, strokeWidth, scale, rotation, canvasWidth, canvasHeight, depthColors, colorByIteration, overlayRects } = options;
   const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
   // Clear
@@ -96,6 +98,20 @@ export function renderToCanvas(
       ctx.lineTo(x2, y2);
     }
     ctx.stroke();
+  }
+
+  if (overlayRects && overlayRects.length > 0) {
+    ctx.strokeStyle = "rgba(91, 245, 160, 0.55)";
+    ctx.lineWidth = Math.max(1, dpr);
+    ctx.setLineDash([6 * dpr, 4 * dpr]);
+    for (const rect of overlayRects) {
+      const x = (rect.x - geoCenterX) * fitScale;
+      const y = (rect.y - geoCenterY) * fitScale;
+      const w = rect.w * fitScale;
+      const h = rect.h * fitScale;
+      ctx.strokeRect(x, y, w, h);
+    }
+    ctx.setLineDash([]);
   }
 
   ctx.restore();

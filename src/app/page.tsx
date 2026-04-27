@@ -6,12 +6,15 @@ import { IFSControlPanel } from "@/components/IFSControlPanel";
 import { ExportPanel } from "@/components/ExportPanel";
 import { FractalCanvas } from "@/components/FractalCanvas";
 import { AnimationPanel } from "@/components/AnimationPanel";
+import { IconExportPanel } from "@/components/IconExportPanel";
 import { PRESETS } from "@/lib/presets";
 import { generateLSystem, generateLSystemWithIterations } from "@/lib/engine/lsystem";
 import { interpretTurtle } from "@/lib/engine/turtle";
 import { parseRuleString } from "@/components/CustomRuleEditor";
 import { applyRadialSymmetry } from "@/lib/engine/symmetry";
 import { applyTiling } from "@/lib/engine/tiling";
+import { buildSeamlessTile, replicateTile } from "@/lib/engine/pattern";
+import { getBBox } from "@/lib/engine/geometry";
 import { serializeParams, deserializeParams } from "@/lib/sharing/url-state";
 import type { FractalParams } from "@/lib/engine/types";
 import type { IFSPoint } from "@/lib/engine/ifs-types";
@@ -107,7 +110,7 @@ function computeGeometry(params: FractalParams): GeometryResult {
 
   let segments: import("@/lib/engine/types").Segment[];
 
-  if (params.colorMode === "per-iteration") {
+  if (params.colorMode === "per-iteration" || params.colorMode === "gradient") {
     const { lString, iterationMap } = generateLSystemWithIterations(axiom, rules, params.iterations);
     segments = interpretTurtle(lString, turtleOpts, iterationMap);
   } else {
@@ -119,7 +122,30 @@ function computeGeometry(params: FractalParams): GeometryResult {
     segments = applyRadialSymmetry(segments, params.symmetryFolds);
   }
 
-  if (params.tiling) {
+  if (params.pattern) {
+    // Seamless pattern mode: clip the geometry to a tile square with wrap-around,
+    // then replicate that tile into a preview grid.
+    const bbox = getBBox(segments);
+    const longSide = Math.max(
+      bbox.maxX - bbox.minX,
+      bbox.maxY - bbox.minY
+    ) || 1;
+    const tileSizeUnits = longSide * params.patternTileSize;
+
+    const { tileSegments, tile } = buildSeamlessTile(segments, {
+      tileSize: tileSizeUnits,
+      contentScale: params.patternContentScale,
+      offsetX: params.patternOffsetX,
+      offsetY: params.patternOffsetY,
+    });
+
+    segments = replicateTile(
+      tileSegments,
+      tile,
+      params.patternPreviewCols,
+      params.patternPreviewRows
+    );
+  } else if (params.tiling) {
     segments = applyTiling(segments, params.tileCols, params.tileRows);
   }
 
@@ -156,6 +182,14 @@ export default function Home() {
       tiling: false,
       tileCols: 2,
       tileRows: 2,
+      pattern: false,
+      patternTileSize: 0.8,
+      patternContentScale: 1.0,
+      patternOffsetX: 0,
+      patternOffsetY: 0,
+      patternPreviewCols: 3,
+      patternPreviewRows: 3,
+      patternShowBounds: true,
       bgColor: "#0a0a14",
       bgTransparent: true,
       ifsPreset: "barnsley-fern",
@@ -275,6 +309,40 @@ export default function Home() {
   // Compute geometry from display params
   const geometry = useMemo(() => computeGeometry(displayParams), [displayParams]);
 
+  // Base (pre-pattern) geometry — needed by export and the preview overlay.
+  // Only compute it when pattern mode is on to avoid pointless work.
+  const baseGeometry = useMemo(() => {
+    if (!displayParams.pattern) return undefined;
+    return computeGeometry({ ...displayParams, pattern: false, tiling: false });
+  }, [displayParams]);
+
+  // Pattern tile overlay (dashed borders showing tile edges in the preview).
+  const overlayRects = useMemo(() => {
+    if (!displayParams.pattern) return undefined;
+    if (!displayParams.patternShowBounds) return undefined;
+    if (geometry.mode !== "lsystem" || geometry.segments.length === 0) return undefined;
+    if (!baseGeometry || baseGeometry.mode !== "lsystem" || baseGeometry.segments.length === 0) return undefined;
+
+    const bbox = getBBox(baseGeometry.segments);
+    const longSide = Math.max(bbox.maxX - bbox.minX, bbox.maxY - bbox.minY) || 1;
+    const size = longSide * displayParams.patternTileSize;
+
+    const cols = displayParams.patternPreviewCols;
+    const rows = displayParams.patternPreviewRows;
+    const startX = -((cols - 1) * size) / 2;
+    const startY = -((rows - 1) * size) / 2;
+
+    const rects: Array<{ x: number; y: number; w: number; h: number }> = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cx = startX + c * size;
+        const cy = startY + r * size;
+        rects.push({ x: cx - size / 2, y: cy - size / 2, w: size, h: size });
+      }
+    }
+    return rects;
+  }, [displayParams, geometry, baseGeometry]);
+
   const handleParamChange = useCallback(
     (key: keyof FractalParams, value: number | string | boolean | string[]) => {
       // When user manually changes params, clear animated overlay
@@ -340,6 +408,12 @@ export default function Home() {
     setAnimatedParams(null);
     setParams((prev) => ({ ...prev, engineMode: mode }));
   }, []);
+
+  const [viewMode, setViewMode] = useState<"fractal" | "dotmatrix" | "ascii">("fractal");
+  const [dotGridSize, setDotGridSize] = useState(40);
+  const [dotShape, setDotShape] = useState<"circle" | "square">("circle");
+  const [dotMaxFill, setDotMaxFill] = useState(0.88);
+  const [dotUniform, setDotUniform] = useState(false);
 
   const isAnimating = animation.playing;
 
@@ -437,6 +511,16 @@ export default function Home() {
           <ExportPanel
             geometry={geometry}
             params={displayParams}
+            baseGeometry={baseGeometry}
+            viewMode={viewMode}
+            dotGridSize={dotGridSize}
+            dotShape={dotShape}
+            dotMaxFill={dotMaxFill}
+            dotUniform={dotUniform}
+          />
+          <IconExportPanel
+            geometry={geometry}
+            params={displayParams}
           />
         </aside>
 
@@ -456,7 +540,149 @@ export default function Home() {
           <FractalCanvas
             geometry={geometry}
             params={displayParams}
+            overlayRects={overlayRects}
+            viewMode={viewMode}
+            dotGridSize={dotGridSize}
+            dotShape={dotShape}
+            dotMaxFill={dotMaxFill}
+            dotUniform={dotUniform}
           />
+
+          {/* View mode toggle overlay */}
+          <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+            <div className="flex gap-1 p-0.5 bg-bg-secondary/90 backdrop-blur-sm rounded-lg border border-border-subtle shadow-lg">
+              <button
+                onClick={() => setViewMode("fractal")}
+                title="Normal fractal view"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-[family-name:var(--font-mono)] transition-all ${
+                  viewMode === "fractal"
+                    ? "bg-accent/15 text-accent"
+                    : "text-text-tertiary hover:text-text-secondary"
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M6 1L6 11M3 4L6 1L9 4M3 8L6 11L9 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Lines
+              </button>
+              <button
+                onClick={() => setViewMode("dotmatrix")}
+                title="Dot matrix density view"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-[family-name:var(--font-mono)] transition-all ${
+                  viewMode === "dotmatrix"
+                    ? "bg-accent/15 text-accent"
+                    : "text-text-tertiary hover:text-text-secondary"
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <circle cx="2.5" cy="2.5" r="1" fill="currentColor"/>
+                  <circle cx="6" cy="2" r="1.5" fill="currentColor"/>
+                  <circle cx="9.5" cy="2.5" r="1" fill="currentColor"/>
+                  <circle cx="2" cy="6" r="1.5" fill="currentColor"/>
+                  <circle cx="6" cy="6" r="2" fill="currentColor"/>
+                  <circle cx="10" cy="6" r="1.5" fill="currentColor"/>
+                  <circle cx="2.5" cy="9.5" r="1" fill="currentColor"/>
+                  <circle cx="6" cy="10" r="1.5" fill="currentColor"/>
+                  <circle cx="9.5" cy="9.5" r="1" fill="currentColor"/>
+                </svg>
+                Dots
+              </button>
+              <button
+                onClick={() => setViewMode("ascii")}
+                title="ASCII art view"
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-[family-name:var(--font-mono)] transition-all ${
+                  viewMode === "ascii"
+                    ? "bg-accent/15 text-accent"
+                    : "text-text-tertiary hover:text-text-secondary"
+                }`}
+              >
+                <span className="font-[family-name:var(--font-mono)] text-[11px] leading-none tracking-tight">
+                  &lt;/&gt;
+                </span>
+                ASCII
+              </button>
+            </div>
+
+            {/* Grid size + shape — visible in dot or ascii mode */}
+            {(viewMode === "dotmatrix" || viewMode === "ascii") && (
+              <>
+                <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary/90 backdrop-blur-sm rounded-lg border border-border-subtle shadow-lg">
+                  <span className="text-[10px] font-[family-name:var(--font-mono)] text-text-tertiary shrink-0 w-10">Amount</span>
+                  <input
+                    type="range"
+                    min={5}
+                    max={100}
+                    step={1}
+                    value={dotGridSize}
+                    onChange={(e) => setDotGridSize(Number(e.target.value))}
+                    className="w-24 h-1 rounded-full appearance-none cursor-pointer bg-bg-tertiary accent-accent"
+                  />
+                  <span className="text-[10px] font-[family-name:var(--font-mono)] text-text-tertiary w-7 text-right shrink-0">
+                    {dotGridSize}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary/90 backdrop-blur-sm rounded-lg border border-border-subtle shadow-lg">
+                  <span className="text-[10px] font-[family-name:var(--font-mono)] text-text-tertiary shrink-0 w-10">Size</span>
+                  <input
+                    type="range"
+                    min={0.15}
+                    max={1.0}
+                    step={0.05}
+                    value={dotMaxFill}
+                    onChange={(e) => setDotMaxFill(Number(e.target.value))}
+                    className="w-24 h-1 rounded-full appearance-none cursor-pointer bg-bg-tertiary accent-accent"
+                  />
+                  <span className="text-[10px] font-[family-name:var(--font-mono)] text-text-tertiary w-7 text-right shrink-0">
+                    {Math.round(dotMaxFill * 100)}%
+                  </span>
+                </div>
+
+                {viewMode === "dotmatrix" && (
+                <div className="flex gap-1 p-0.5 bg-bg-secondary/90 backdrop-blur-sm rounded-lg border border-border-subtle shadow-lg">
+                  <button
+                    onClick={() => setDotShape("circle")}
+                    title="Circle dots"
+                    className={`flex items-center justify-center w-7 h-7 rounded-md transition-all ${
+                      dotShape === "circle"
+                        ? "bg-accent/15 text-accent"
+                        : "text-text-tertiary hover:text-text-secondary"
+                    }`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <circle cx="6" cy="6" r="4.5" fill="currentColor"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setDotShape("square")}
+                    title="Square dots"
+                    className={`flex items-center justify-center w-7 h-7 rounded-md transition-all ${
+                      dotShape === "square"
+                        ? "bg-accent/15 text-accent"
+                        : "text-text-tertiary hover:text-text-secondary"
+                    }`}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <rect x="1.5" y="1.5" width="9" height="9" fill="currentColor"/>
+                    </svg>
+                  </button>
+                </div>
+                )}
+
+                <button
+                  onClick={() => setDotUniform((v) => !v)}
+                  title={dotUniform ? "Density off — all dots uniform size" : "Density on — dot size reflects complexity"}
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-[family-name:var(--font-mono)] border shadow-lg backdrop-blur-sm transition-all ${
+                    dotUniform
+                      ? "bg-bg-secondary/90 text-text-tertiary border-border-subtle hover:text-text-secondary"
+                      : "bg-accent/15 text-accent border-accent/25"
+                  }`}
+                >
+                  Density
+                </button>
+              </>
+            )}
+          </div>
         </main>
       </div>
     </div>

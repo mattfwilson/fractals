@@ -1,10 +1,11 @@
 # Codebase Map
 
-Generated: 2026-04-13T13:40:34Z | Files: 43 | Described: 0/43
-<!-- gsd:codebase-meta {"generatedAt":"2026-04-13T13:40:34Z","fingerprint":"eea1e439695e395ffea9a187443f416c01e415d2","fileCount":43,"truncated":false} -->
+Generated: 2026-04-23T17:18:49Z | Files: 44 | Described: 0/44
+<!-- gsd:codebase-meta {"generatedAt":"2026-04-23T17:18:49Z","fingerprint":"9b0c1467f9b42e2a22941d5620765a0e21e50b14","fileCount":44,"truncated":false} -->
 
 ### (root)/
 - `.gitignore`
+- `.mcp.json`
 - `AGENTS.md`
 - `CLAUDE.md`
 - `eslint.config.mjs`

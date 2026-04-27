@@ -2,25 +2,33 @@
 
 import { useCallback, useRef } from "react";
 import { Slider, LabelWithTooltip } from "./Slider";
+import { CollapsibleSection } from "./CollapsibleSection";
 import { PRESETS, PRESET_ORDER } from "@/lib/presets";
 import { CustomRuleEditor } from "./CustomRuleEditor";
 import type { FractalParams } from "@/lib/engine/types";
 
+/** Named palettes for the per-iteration color picker. */
+const ITERATION_PALETTES: Record<string, string[]> = {
+  Accent: [
+    "#5bf5a0", "#a855f7", "#f59e0b", "#3b82f6", "#ef4444", "#ec4899",
+    "#14b8a6", "#f97316", "#8b5cf6", "#06b6d4", "#84cc16", "#e879f9",
+  ],
+  Warm: [
+    "#fde68a", "#fbbf24", "#f97316", "#ef4444", "#b91c1c", "#7f1d1d",
+    "#fecaca", "#fca5a5", "#f87171", "#dc2626", "#991b1b", "#450a0a",
+  ],
+  Cool: [
+    "#a7f3d0", "#6ee7b7", "#34d399", "#10b981", "#06b6d4", "#0891b2",
+    "#3b82f6", "#6366f1", "#8b5cf6", "#4338ca", "#1e3a8a", "#172554",
+  ],
+  Mono: [
+    "#fafafa", "#e5e5e5", "#d4d4d4", "#a3a3a3", "#737373", "#525252",
+    "#404040", "#262626", "#171717", "#0a0a0a", "#000000", "#1a1a1a",
+  ],
+};
+
 /** Default palette for per-iteration colors — chosen for good contrast on dark backgrounds */
-const ITERATION_PALETTE = [
-  "#5bf5a0", // green (accent)
-  "#a855f7", // purple
-  "#f59e0b", // amber
-  "#3b82f6", // blue
-  "#ef4444", // red
-  "#ec4899", // pink
-  "#14b8a6", // teal
-  "#f97316", // orange
-  "#8b5cf6", // violet
-  "#06b6d4", // cyan
-  "#84cc16", // lime
-  "#e879f9", // fuchsia
-];
+const ITERATION_PALETTE = ITERATION_PALETTES.Accent;
 
 /**
  * Ensure the iterationColors array has exactly `count` entries.
@@ -60,8 +68,45 @@ function IterationColorPicker({
     [normalized, onColorsChange]
   );
 
+  const applyPalette = useCallback(
+    (name: keyof typeof ITERATION_PALETTES) => {
+      const palette = ITERATION_PALETTES[name];
+      const next = Array.from({ length: count }, (_, i) => palette[i % palette.length]);
+      onColorsChange(next);
+    },
+    [count, onColorsChange]
+  );
+
+  const shuffle = useCallback(() => {
+    const next = [...normalized];
+    for (let i = next.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [next[i], next[j]] = [next[j], next[i]];
+    }
+    onColorsChange(next);
+  }, [normalized, onColorsChange]);
+
   return (
     <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1">
+        {(Object.keys(ITERATION_PALETTES) as Array<keyof typeof ITERATION_PALETTES>).map((name) => (
+          <button
+            key={name}
+            onClick={() => applyPalette(name)}
+            className="flex-1 text-[9px] font-[family-name:var(--font-mono)] py-1 rounded bg-bg-tertiary/50 text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle transition-all"
+            title={`Apply ${name} palette`}
+          >
+            {name}
+          </button>
+        ))}
+        <button
+          onClick={shuffle}
+          className="text-[10px] font-[family-name:var(--font-mono)] px-2 py-1 rounded bg-bg-tertiary/50 text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary border border-border-subtle transition-all"
+          title="Shuffle colors"
+        >
+          ⇄
+        </button>
+      </div>
       <div className="flex flex-wrap gap-1.5">
         {normalized.map((color, i) => (
           <div key={i} className="flex flex-col items-center gap-1">
@@ -123,19 +168,81 @@ interface ControlPanelProps {
   onPresetChange: (presetKey: string) => void;
 }
 
-function Section({
-  title,
-  children,
+const Section = CollapsibleSection;
+
+/** Compact +/− stepper for small integer ranges. */
+function Stepper({
+  label,
+  tooltip,
+  value,
+  min,
+  max,
+  onChange,
 }: {
-  title: string;
-  children: React.ReactNode;
+  label: string;
+  tooltip?: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+}) {
+  const dec = () => onChange(Math.max(min, value - 1));
+  const inc = () => onChange(Math.min(max, value + 1));
+  return (
+    <div className="flex flex-col gap-1.5 flex-1">
+      <LabelWithTooltip label={label} tooltip={tooltip} />
+      <div className="flex items-center h-6 rounded-md border border-border-subtle bg-bg-tertiary/40 overflow-hidden">
+        <button
+          type="button"
+          onClick={dec}
+          disabled={value <= min}
+          className="w-6 h-full flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text-tertiary transition-colors"
+          aria-label={`Decrease ${label}`}
+        >
+          −
+        </button>
+        <span className="flex-1 text-center text-[11px] font-[family-name:var(--font-mono)] text-accent tabular-nums">
+          {value}
+        </span>
+        <button
+          type="button"
+          onClick={inc}
+          disabled={value >= max}
+          className="w-6 h-full flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text-tertiary transition-colors"
+          aria-label={`Increase ${label}`}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** 3-way segmented toggle for mutually-exclusive modes. */
+function SegmentedThree<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (v: T) => void;
 }) {
   return (
-    <div className="px-4 py-4 border-b border-border-subtle">
-      <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-text-tertiary mb-3 font-[family-name:var(--font-display)]">
-        {title}
-      </h3>
-      <div className="flex flex-col gap-4">{children}</div>
+    <div className="flex gap-1 p-0.5 bg-bg-tertiary/50 rounded-md">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className={`flex-1 text-[10px] font-[family-name:var(--font-mono)] py-1.5 rounded transition-all ${
+            value === opt.value
+              ? "bg-accent/15 text-accent"
+              : "text-text-tertiary hover:text-text-secondary"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -147,6 +254,12 @@ export function ControlPanel({
 }: ControlPanelProps) {
   const currentPreset = PRESETS[params.preset];
   const maxIter = currentPreset?.maxIterations ?? 8;
+
+  // Length ratio only affects fractals with branching ([ ] in rules),
+  // since it scales by depth which only increments inside branches.
+  const hasBranching = params.customMode
+    ? params.customRules.includes("[")
+    : currentPreset != null && Object.values(currentPreset.rules).some((r) => r.includes("["));
 
   const handleIterations = useCallback(
     (v: number) => onParamChange("iterations", v),
@@ -184,7 +297,7 @@ export function ControlPanel({
   return (
     <div className="flex flex-col">
       {/* Preset selector */}
-      <Section title="Preset">
+      <Section title="Preset" persistKey="preset" defaultOpen>
         <div className="grid grid-cols-2 gap-1.5">
           {PRESET_ORDER.map((key) => {
             const preset = PRESETS[key];
@@ -235,7 +348,7 @@ export function ControlPanel({
       </Section>
 
       {/* Structure controls */}
-      <Section title="Structure">
+      <Section title="Structure" persistKey="structure" defaultOpen>
         <Slider
           label="Iterations"
           tooltip="Number of times the L-system rules are applied. Higher values create more detail but increase complexity exponentially."
@@ -257,15 +370,17 @@ export function ControlPanel({
           unit="°"
           decimals={1}
         />
-        <Slider
-          label="Length Ratio"
-          tooltip="How much each branch level shrinks relative to its parent. At 0.5, branches are half the length of the previous level. At 1.0, all segments are equal length. Most visible on branching fractals like trees."
-          value={params.lengthRatio}
-          min={0.1}
-          max={1.0}
-          step={0.01}
-          onChange={handleLengthRatio}
-        />
+        {hasBranching && (
+          <Slider
+            label="Length Ratio"
+            tooltip="How much each branch level shrinks relative to its parent. At 0.5, branches are half the length of the previous level. At 1.0, all segments are equal length."
+            value={params.lengthRatio}
+            min={0.1}
+            max={1.0}
+            step={0.01}
+            onChange={handleLengthRatio}
+          />
+        )}
         <Slider
           label="Angle Jitter"
           tooltip="Random variation applied to each turn angle. Adds organic irregularity — great for natural-looking trees and plants."
@@ -308,8 +423,9 @@ export function ControlPanel({
         )}
       </Section>
 
-      {/* Symmetry & Tiling */}
-      <Section title="Transform">
+      {/* Repeat — mutually-exclusive Off / Tiling / Seamless modes.
+          Symmetry lives here too since it's another form of spatial repetition. */}
+      <Section title="Repeat" persistKey="repeat">
         <Slider
           label="Symmetry"
           tooltip="N-fold radial symmetry. Duplicates the fractal N times around a center point, like a kaleidoscope. 1 = off."
@@ -322,54 +438,136 @@ export function ControlPanel({
           decimals={0}
         />
 
-        {/* Tiling toggle */}
-        <div className="flex items-center justify-between">
-          <LabelWithTooltip label="Tiling" tooltip="Repeat the fractal in a grid pattern. Creates seamless wallpaper-like designs." />
-          <button
-            onClick={() => onParamChange("tiling", !params.tiling)}
-            className={`w-8 h-4 rounded-full transition-all relative ${
-              params.tiling
-                ? "bg-accent/40"
-                : "bg-bg-tertiary border border-border-subtle"
-            }`}
-          >
-            <div
-              className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
-                params.tiling
-                  ? "left-[calc(100%-14px)] bg-accent"
-                  : "left-0.5 bg-text-tertiary"
-              }`}
-            />
-          </button>
-        </div>
-        {params.tiling && (
+        {(() => {
+          type RepeatMode = "off" | "tiling" | "seamless";
+          const mode: RepeatMode = params.pattern ? "seamless" : params.tiling ? "tiling" : "off";
+          const setMode = (next: RepeatMode) => {
+            onParamChange("tiling", next === "tiling");
+            onParamChange("pattern", next === "seamless");
+          };
+          return (
+            <div className="flex flex-col gap-2">
+              <LabelWithTooltip
+                label="Mode"
+                tooltip="Off: single fractal. Tiling: repeat in a simple grid with gaps. Seamless: carve a wrapped tile that repeats without seams (best for Figma patterns)."
+              />
+              <SegmentedThree
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { value: "off", label: "Off" },
+                  { value: "tiling", label: "Tiling" },
+                  { value: "seamless", label: "Seamless" },
+                ]}
+              />
+            </div>
+          );
+        })()}
+
+        {params.tiling && !params.pattern && (
           <div className="flex gap-3">
-            <Slider
+            <Stepper
               label="Cols"
               tooltip="Number of columns in the tiling grid."
               value={params.tileCols}
               min={1}
               max={5}
-              step={1}
               onChange={(v) => onParamChange("tileCols", v)}
-              decimals={0}
             />
-            <Slider
+            <Stepper
               label="Rows"
               tooltip="Number of rows in the tiling grid."
               value={params.tileRows}
               min={1}
               max={5}
-              step={1}
               onChange={(v) => onParamChange("tileRows", v)}
-              decimals={0}
             />
           </div>
+        )}
+
+        {params.pattern && (
+          <>
+            <Slider
+              label="Tile Size"
+              tooltip="Size of the tile relative to the fractal's longer side. Smaller values crop tighter and cause more wrapping."
+              value={params.patternTileSize}
+              min={0.3}
+              max={2.0}
+              step={0.01}
+              onChange={(v) => onParamChange("patternTileSize", v)}
+              unit="×"
+            />
+            <Slider
+              label="Content Scale"
+              tooltip="Scale the fractal inside the tile without changing the tile size. Use to dial in density."
+              value={params.patternContentScale}
+              min={0.3}
+              max={2.0}
+              step={0.01}
+              onChange={(v) => onParamChange("patternContentScale", v)}
+              unit="×"
+            />
+            <Slider
+              label="Offset X"
+              tooltip="Shift the tile origin horizontally within the fractal. Changes where the seam falls."
+              value={params.patternOffsetX}
+              min={-0.5}
+              max={0.5}
+              step={0.01}
+              onChange={(v) => onParamChange("patternOffsetX", v)}
+            />
+            <Slider
+              label="Offset Y"
+              tooltip="Shift the tile origin vertically within the fractal."
+              value={params.patternOffsetY}
+              min={-0.5}
+              max={0.5}
+              step={0.01}
+              onChange={(v) => onParamChange("patternOffsetY", v)}
+            />
+            <div className="flex gap-3">
+              <Stepper
+                label="Preview Cols"
+                tooltip="How many repeats to show horizontally in the preview. Export is always a single tile."
+                value={params.patternPreviewCols}
+                min={1}
+                max={6}
+                onChange={(v) => onParamChange("patternPreviewCols", v)}
+              />
+              <Stepper
+                label="Preview Rows"
+                tooltip="How many repeats to show vertically in the preview."
+                value={params.patternPreviewRows}
+                min={1}
+                max={6}
+                onChange={(v) => onParamChange("patternPreviewRows", v)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <LabelWithTooltip label="Show Tile Bounds" tooltip="Overlay the tile boundary on the preview to see the seam alignment. Export never includes this." />
+              <button
+                onClick={() => onParamChange("patternShowBounds", !params.patternShowBounds)}
+                className={`w-8 h-4 rounded-full transition-all relative ${
+                  params.patternShowBounds
+                    ? "bg-accent/40"
+                    : "bg-bg-tertiary border border-border-subtle"
+                }`}
+              >
+                <div
+                  className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
+                    params.patternShowBounds
+                      ? "left-[calc(100%-14px)] bg-accent"
+                      : "left-0.5 bg-text-tertiary"
+                  }`}
+                />
+              </button>
+            </div>
+          </>
         )}
       </Section>
 
       {/* Visual controls */}
-      <Section title="Appearance">
+      <Section title="Appearance" persistKey="appearance">
         <Slider
           label="Scale"
           tooltip="Zoom level of the fractal on the canvas. Values above 1× enlarge, below 1× shrink."

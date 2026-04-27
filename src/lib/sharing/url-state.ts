@@ -30,6 +30,14 @@ const KEY_MAP: Record<string, string> = {
   tileRows: "tr",
   bgColor: "bg",
   bgTransparent: "bt",
+  pattern: "pt",
+  patternTileSize: "pts",
+  patternContentScale: "pcs",
+  patternOffsetX: "pox",
+  patternOffsetY: "poy",
+  patternPreviewCols: "ppc",
+  patternPreviewRows: "ppr",
+  patternShowBounds: "psb",
 };
 
 /** Reverse map: short key → full key */
@@ -86,6 +94,18 @@ export function serializeParams(params: FractalParams): string {
     parts.push(`ti=1`);
     parts.push(`tc=${params.tileCols}`);
     parts.push(`tr=${params.tileRows}`);
+  }
+
+  // Pattern mode
+  if (params.pattern) {
+    parts.push(`pt=1`);
+    parts.push(`pts=${params.patternTileSize}`);
+    if (params.patternContentScale !== 1) parts.push(`pcs=${params.patternContentScale}`);
+    if (params.patternOffsetX !== 0) parts.push(`pox=${params.patternOffsetX}`);
+    if (params.patternOffsetY !== 0) parts.push(`poy=${params.patternOffsetY}`);
+    parts.push(`ppc=${params.patternPreviewCols}`);
+    parts.push(`ppr=${params.patternPreviewRows}`);
+    if (!params.patternShowBounds) parts.push(`psb=0`);
   }
 
   // Background
@@ -188,6 +208,24 @@ export function deserializeParams(
     result.bgTransparent = false;
     const bg = get("bg");
     if (bg) result.bgColor = bg;
+  }
+
+  // Pattern mode
+  if (get("pt") === "1") {
+    result.pattern = true;
+    const pts = getNum("pts");
+    if (pts != null) result.patternTileSize = pts;
+    const pcs = getNum("pcs");
+    if (pcs != null) result.patternContentScale = pcs;
+    const pox = getNum("pox");
+    if (pox != null) result.patternOffsetX = pox;
+    const poy = getNum("poy");
+    if (poy != null) result.patternOffsetY = poy;
+    const ppc = getNum("ppc");
+    if (ppc != null) result.patternPreviewCols = ppc;
+    const ppr = getNum("ppr");
+    if (ppr != null) result.patternPreviewRows = ppr;
+    if (get("psb") === "0") result.patternShowBounds = false;
   }
 
   return result as Partial<FractalParams>;

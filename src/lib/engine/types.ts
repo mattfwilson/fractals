@@ -56,6 +56,22 @@ export interface FractalParams {
   tileCols: number;
   /** Tiling grid rows */
   tileRows: number;
+  /** Enable seamless pattern mode (wrap geometry at tile edges). */
+  pattern: boolean;
+  /** Tile edge length, as a fraction of the geometry's longer bbox side (0.3..2.0). */
+  patternTileSize: number;
+  /** How much to scale content inside the tile (0.3..2.0). */
+  patternContentScale: number;
+  /** Horizontal shift of the tile origin in tile units (-0.5..0.5). */
+  patternOffsetX: number;
+  /** Vertical shift of the tile origin in tile units (-0.5..0.5). */
+  patternOffsetY: number;
+  /** Preview repeats horizontally (1..6). */
+  patternPreviewCols: number;
+  /** Preview repeats vertically (1..6). */
+  patternPreviewRows: number;
+  /** Show the tile boundary overlay on the preview. */
+  patternShowBounds: boolean;
   /** Background color for canvas and SVG export */
   bgColor: string;
   /** Whether background is transparent (no bg rect in SVG) */
